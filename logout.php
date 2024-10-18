@@ -1,19 +1,12 @@
 <?php
-// Start session
+// Start the session
 session_start();
 
-// Unset all session variables
-$_SESSION = [];
-
-// Destroy the session
-if (session_id() != "" || isset($_COOKIE[session_name()])) {
-    setcookie(session_name(), '', time() - 42000, '/'); // Delete session cookie
-}
-
-// Destroy the session
+// Destroy all session data
+session_unset();
 session_destroy();
 
-// Redirect to the login page or home page
+// Redirect to the login page
 header("Location: login.php");
-exit;
+exit();
 ?>

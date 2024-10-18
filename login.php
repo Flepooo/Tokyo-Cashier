@@ -1,107 +1,153 @@
 <?php
-// Start session
-session_start();
+// Include the database connection file
+include('db_connection.php');
 
-// Database connection
-$host = 'localhost';
-$dbname = 'tokyo_pos'; // Your database name
-$username = 'root'; // Default username for XAMPP
-$password = ''; // Default password for XAMPP (empty)
-
-// Create connection
-$conn = new mysqli($host, $username, $password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+// Check if a session is already started, if not, start it
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-// Initialize variables for error message
-$error_msg = '';
+// Check if the user is already logged in
+if (isset($_SESSION['user_id'])) {
+    // Redirect based on the user's role
+    if ($_SESSION['role'] === 'super_admin') {
+        header("Location: super_admin_dashboard.php");
+    } elseif ($_SESSION['role'] === 'admin') {
+        header("Location: admin_dashboard.php");
+    }
+    exit();
+}
 
-// Check if form is submitted
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $input_username = $_POST['username'];
-    $input_password = $_POST['password'];
+// Initialize variables for username and password
+$username = '';
+$password = '';
 
-    // Prepare SQL query to check if the user exists
-    $sql = "SELECT * FROM users WHERE username = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $input_username);
+// Check if the form is submitted
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Get username and password from the form
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+
+    // Prepare a statement to prevent SQL injection
+    $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
+    $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
-    
-    // If the user exists
+
     if ($result->num_rows > 0) {
+        // Fetch user data
         $user = $result->fetch_assoc();
-        // Compare the plain text password (not hashed)
-        if ($input_password === $user['password']) {
-            // Set session variables
+
+        // Verify password
+        if (password_verify($password, $user['password'])) {
+            // Set session variables for the logged-in user
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
-            
-            // Redirect based on role
-            if ($user['role'] == 'admin') {
-                header("Location: admin_dashboard.php"); // Redirect to admin dashboard
-            } else {
-                header("Location: user_dashboard.php"); // Redirect to user dashboard
+
+            // Redirect based on the user's role
+            if ($user['role'] === 'super_admin') {
+                header("Location: super_admin_dashboard.php");
+            } elseif ($user['role'] === 'admin') {
+                header("Location: admin_dashboard.php");
             }
-            exit;
+            exit();
         } else {
-            $error_msg = "Incorrect password.";
+            // Incorrect password
+            $error_message = "Invalid password. Please try again.";
         }
     } else {
-        $error_msg = "Username not found.";
+        // Username not found
+        $error_message = "Username not registered. Please check your username.";
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | Tokyo POS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
+
+    <title>Tokyo Store</title>
+
+    <!-- Custom fonts for this template-->
+    <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css" />
+    <link
+        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+        rel="stylesheet" />
+
+    <!-- Custom styles for this template-->
+    <link href="css/sb-admin-2.min.css" rel="stylesheet" />
 </head>
 
-<body class="bg-gray-100">
-    <div class="min-h-screen flex items-center justify-center">
-        <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-            <h1 class="text-2xl font-bold mb-6 text-center">Tokyo POS Login</h1>
+<body class="bg-dark">
+    <div class="container" style="margin-top: 150px">
+        <!-- Outer Row -->
+        <div class="row justify-content-center">
+            <div class="col-xl-10 col-lg-12 col-md-9">
+                <div class="card o-hidden border-0 shadow-lg my-5">
+                    <div class="card-body p-0">
+                        <!-- Nested Row within Card Body -->
+                        <div class="row">
+                            <div class="col-lg-6 d-none d-lg-block bg-login-image">
+                                <img src="img/tokyo-black.png" width="300px"
+                                    style="margin-top: 100px; margin-left: 80px" />
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="p-5">
+                                    <div class="text-center">
+                                        <h1 class="h4 text-gray-900 mb-4">Welcome Back!</h1>
+                                    </div>
 
-            <!-- Display error message -->
-            <?php if ($error_msg != ''): ?>
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <strong class="font-bold">Error:</strong>
-                <span class="block sm:inline"><?php echo $error_msg; ?></span>
+                                    <!-- Display error message if any -->
+                                    <?php if (isset($error_message)): ?>
+                                    <div class="alert alert-danger" role="alert">
+                                        <?php echo $error_message; ?>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <form class="user" method="POST" action="">
+                                        <div class="form-group">
+                                            <input type="text" class="form-control form-control-user" name="username"
+                                                placeholder="Enter Username..." required />
+                                        </div>
+                                        <div class="form-group">
+                                            <input type="password" class="form-control form-control-user"
+                                                name="password" placeholder="Password" required />
+                                        </div>
+                                        <div class="form-group">
+                                            <div class="custom-control custom-checkbox small">
+                                                <input type="checkbox" class="custom-control-input" id="customCheck" />
+                                                <label class="custom-control-label" for="customCheck">Remember
+                                                    Me</label>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary btn-user btn-block">Login</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <?php endif; ?>
-
-            <form action="login.php" method="POST">
-                <div class="mb-4">
-                    <label for="username" class="block text-gray-700 text-sm font-bold mb-2">Username</label>
-                    <input type="text" name="username" id="username" required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                </div>
-
-                <div class="mb-6">
-                    <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Password</label>
-                    <input type="password" name="password" id="password" required
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                </div>
-
-                <div class="flex items-center justify-between">
-                    <button type="submit"
-                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                        Login
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
+
+    <!-- Bootstrap core JavaScript-->
+    <script src="vendor/jquery/jquery.min.js"></script>
+    <script src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Core plugin JavaScript-->
+    <script src="vendor/jquery-easing/jquery.easing.min.js"></script>
+
+    <!-- Custom scripts for all pages-->
+    <script src="js/sb-admin-2.min.js"></script>
 </body>
 
 </html>
